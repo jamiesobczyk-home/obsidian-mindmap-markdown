@@ -1,0 +1,960 @@
+/* Mind Map. Colours come from Obsidian's theme variables, so every theme and
+   both light and dark mode work without extra rules. */
+
+.mm-view {
+	position: relative;
+	padding: 0 !important;
+	overflow: hidden;
+}
+
+.mm-c0 { --mm-color: var(--color-blue); }
+.mm-c1 { --mm-color: var(--color-orange); }
+.mm-c2 { --mm-color: var(--color-green); }
+.mm-c3 { --mm-color: var(--color-purple); }
+.mm-c4 { --mm-color: var(--color-red); }
+.mm-c5 { --mm-color: var(--color-cyan); }
+.mm-c6 { --mm-color: var(--color-yellow); }
+.mm-c7 { --mm-color: var(--color-pink); }
+
+.mm-viewport {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	cursor: grab;
+	touch-action: none;
+	outline: none;
+	background:
+		radial-gradient(circle, var(--background-modifier-border) 1px, transparent 1px) 0 0 / 24px 24px,
+		var(--background-primary);
+}
+
+.mm-viewport.is-panning {
+	cursor: grabbing;
+}
+
+.mm-canvas {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: 0 0;
+}
+
+.mm-edges {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 1px;
+	height: 1px;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.mm-edge {
+	fill: none;
+	stroke: var(--mm-color, var(--text-faint));
+	stroke-width: 1.5px;
+	stroke-linecap: round;
+}
+
+.mm-edge[data-depth="1"] { stroke-width: 3px; }
+.mm-edge[data-depth="2"] { stroke-width: 2px; }
+
+.mm-node {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: max-content;
+	max-width: 320px;
+	color: var(--text-normal);
+	font-size: var(--font-text-size);
+	line-height: 1.4;
+	cursor: default;
+	user-select: none;
+}
+
+.mm-node.is-root {
+	max-width: 360px;
+	padding: 10px 20px;
+	border-radius: 12px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: 1.25em;
+	font-weight: 600;
+	text-align: center;
+}
+
+.mm-node.is-branch {
+	padding: 5px 12px;
+	border: 2px solid var(--mm-color);
+	border-radius: 8px;
+	background: var(--background-primary);
+	font-weight: 500;
+}
+
+.mm-node.is-leaf {
+	padding: 2px 4px 3px;
+	border-bottom: 2px solid var(--mm-color);
+}
+
+.mm-node.is-selected {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 3px;
+	border-radius: 6px;
+}
+
+.mm-node.is-root.is-selected {
+	outline-offset: 4px;
+	border-radius: 12px;
+}
+
+.mm-label {
+	min-width: 1ch;
+	overflow-wrap: anywhere;
+}
+
+.mm-label p {
+	margin: 0;
+}
+
+.mm-label.is-editing {
+	outline: none;
+	cursor: text;
+	user-select: text;
+	white-space: pre-wrap;
+}
+
+.mm-node.is-root .mm-label a,
+.mm-node.is-root .mm-label .internal-link {
+	color: var(--text-on-accent);
+}
+
+/* An empty topic being typed into still needs something to see and click. */
+.mm-node.is-empty .mm-label:empty::before {
+	content: "Topic";
+	color: var(--text-faint);
+}
+
+.mm-badge {
+	position: absolute;
+	top: 50%;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 5px;
+	border-radius: 10px;
+	background: var(--mm-color, var(--text-muted));
+	color: var(--background-primary);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 20px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+	transform: translateY(-50%);
+	cursor: pointer;
+}
+
+.mm-node.is-leaf .mm-badge { top: 100%; }
+.mm-node[data-side="right"] .mm-badge { left: calc(100% + 6px); }
+.mm-node[data-side="left"] .mm-badge { right: calc(100% + 6px); }
+
+/* Layouts: down and outline */
+/* In an org chart the children hang below, so the folded count goes there too. */
+.mm-node[data-side="down"] .mm-badge {
+	top: calc(100% + 6px);
+	left: 50%;
+	transform: translateX(-50%);
+}
+.mm-node[data-side="outline"] .mm-badge { left: calc(100% + 6px); }
+
+.mm-toolbar {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	display: flex;
+	gap: 2px;
+	padding: 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	box-shadow: var(--shadow-s);
+	z-index: 2;
+}
+
+.mm-banner {
+	position: absolute;
+	top: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: calc(100% - 24px);
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	z-index: 2;
+}
+
+/* Interaction */
+
+/* Other selected topics in a multi-selection: the primary keeps the solid
+   outline so it's clear which topic the keys act on. */
+.mm-node.is-multi:not(.is-selected) {
+	outline: 2px dashed var(--interactive-accent);
+	outline-offset: 3px;
+	border-radius: 6px;
+}
+
+.mm-node.is-multi {
+	background-color: var(--background-modifier-hover);
+}
+
+.mm-node.is-root.is-multi {
+	background-color: var(--interactive-accent);
+}
+
+.mm-viewport.is-dragging,
+.mm-viewport.is-dragging .mm-node {
+	cursor: grabbing;
+}
+
+/* The topics being dragged stay in place, dimmed, so the old spot is visible. */
+.mm-node.is-dragging,
+.mm-edge.is-dragging {
+	opacity: 0.35;
+}
+
+.mm-ghost {
+	pointer-events: none;
+	opacity: 0.85;
+	box-shadow: var(--shadow-s);
+	background: var(--background-primary);
+	border-radius: 6px;
+	outline: none;
+	z-index: 3;
+}
+
+.mm-ghost-count {
+	position: absolute;
+	top: -10px;
+	right: -10px;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 5px;
+	border-radius: 10px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 20px;
+	text-align: center;
+}
+
+/* Dropping on a topic: the target lights up. */
+.mm-node.is-drop-target {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 4px;
+	border-radius: 6px;
+	background-color: var(--background-modifier-hover);
+	box-shadow: 0 0 0 6px var(--background-modifier-hover);
+}
+
+.mm-node.is-root.is-drop-target {
+	background-color: var(--interactive-accent);
+	border-radius: 12px;
+}
+
+/* Dropping beside a topic: a bar in the gap, with a dot at its start. */
+.mm-drop-line {
+	position: absolute;
+	top: -1.5px;
+	left: 0;
+	height: 3px;
+	border-radius: 2px;
+	background: var(--interactive-accent);
+	pointer-events: none;
+	z-index: 2;
+}
+
+.mm-drop-line.is-vertical {
+	top: 0;
+	left: -1.5px;
+	width: 3px;
+}
+
+.mm-drop-line::before {
+	content: "";
+	position: absolute;
+	left: -4px;
+	top: -2.5px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--interactive-accent);
+}
+
+.mm-drop-line.is-vertical::before {
+	left: -2.5px;
+	top: -4px;
+}
+
+/* Breadcrumb while focused on a branch. Top-left so it never covers the
+   read-only banner. */
+.mm-focusbar {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	max-width: calc(100% - 24px);
+	padding: 4px 8px 4px 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	box-shadow: var(--shadow-s);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	z-index: 2;
+}
+
+.mm-focus-trail {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.mm-focus-crumb {
+	padding: 2px 4px;
+	border: none;
+	background: none;
+	box-shadow: none;
+	color: var(--text-muted);
+	font-size: inherit;
+	cursor: pointer;
+}
+
+.mm-focus-crumb:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
+.mm-focus-current {
+	color: var(--text-normal);
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mm-focus-sep {
+	color: var(--text-faint);
+}
+
+.mm-focusbar button:focus-visible,
+.mm-toolbar button:focus-visible,
+.mm-banner button:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* Branch colours chosen from the topic menu; they override the automatic ones. */
+.mm-color-red { --mm-color: var(--color-red); }
+.mm-color-orange { --mm-color: var(--color-orange); }
+.mm-color-yellow { --mm-color: var(--color-yellow); }
+.mm-color-green { --mm-color: var(--color-green); }
+.mm-color-cyan { --mm-color: var(--color-cyan); }
+.mm-color-blue { --mm-color: var(--color-blue); }
+.mm-color-purple { --mm-color: var(--color-purple); }
+.mm-color-pink { --mm-color: var(--color-pink); }
+
+/* Relationship lines: dashed curves over the tree, drawn above topics so
+   they stay visible and clickable. The SVG ignores the pointer except on the
+   wide invisible hit stroke and the label. */
+.mm-links {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 1px;
+	height: 1px;
+	overflow: visible;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.mm-link {
+	fill: none;
+	stroke: var(--text-muted);
+	stroke-width: 1.5px;
+	stroke-dasharray: 6 4;
+	stroke-linecap: round;
+}
+
+/* An end inside a folded branch attaches to the fold, drawn fainter. */
+.mm-link.is-folded { opacity: 0.5; }
+
+.mm-link.is-selected {
+	stroke: var(--interactive-accent);
+	stroke-width: 2.5px;
+}
+
+.mm-arrow { fill: var(--text-muted); }
+.mm-arrow.is-selected { fill: var(--interactive-accent); }
+
+.mm-link-hit {
+	fill: none;
+	stroke: transparent;
+	stroke-width: 14px;
+	pointer-events: stroke;
+	cursor: pointer;
+}
+
+.mm-link-label {
+	fill: var(--text-muted);
+	font-size: 12px;
+	font-style: italic;
+	text-anchor: middle;
+	dominant-baseline: middle;
+	paint-order: stroke;
+	stroke: var(--background-primary);
+	stroke-width: 4px;
+	stroke-linejoin: round;
+	pointer-events: all;
+	cursor: pointer;
+}
+
+.mm-link-label.is-selected { fill: var(--interactive-accent); }
+
+/* Picking the other end of a new link. */
+.mm-viewport.is-linking,
+.mm-viewport.is-linking .mm-node {
+	cursor: crosshair;
+}
+
+.mm-hint {
+	position: absolute;
+	top: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	max-width: calc(100% - 24px);
+	padding: 6px 12px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	z-index: 2;
+}
+
+.mm-link-input { width: 100%; }
+
+/* A folded central topic carries its count to the right. */
+.mm-node[data-side="root"] .mm-badge { left: calc(100% + 6px); }
+
+/* Outline pane */
+.mm-outline {
+	--mm-outline-indent: 16px;
+	--mm-outline-row-height: 28px;
+}
+
+.is-mobile .mm-outline {
+	--mm-outline-indent: 20px;
+	--mm-outline-row-height: 40px;
+}
+
+.mm-outline-caption {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px 8px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.mm-outline-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mm-outline-badge {
+	flex: none;
+	padding: 0 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-smaller, 12px);
+	color: var(--text-faint);
+}
+
+.mm-outline-list:focus {
+	outline: none;
+}
+
+.mm-outline-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-height: var(--mm-outline-row-height);
+	padding: 2px 6px 2px calc(var(--mm-outline-depth, 0) * var(--mm-outline-indent) + 2px);
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	line-height: 1.3;
+	cursor: var(--cursor, default);
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+@media (hover: hover) {
+	.mm-outline-row:hover {
+		background: var(--background-modifier-hover);
+	}
+}
+
+/* Each centre reads as a heading, with a rule between the trees. */
+.mm-outline-row.is-central {
+	font-size: var(--font-ui-medium, 15px);
+	font-weight: var(--font-semibold, 600);
+}
+
+.mm-outline-row.is-central:not(:first-child) {
+	margin-top: 10px;
+	border-top: 1px solid var(--background-modifier-border);
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+	padding-top: 8px;
+}
+
+.mm-outline-row.is-selected {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+	color: var(--text-accent, var(--interactive-accent));
+	box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+/* The arrow-key cursor, when it's somewhere other than the selection. */
+.mm-outline-list:focus-visible .mm-outline-row.is-cursor,
+.mm-outline-list:focus .mm-outline-row.is-cursor {
+	box-shadow: inset 0 0 0 1px var(--interactive-accent);
+}
+
+.mm-outline-fold {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	align-self: stretch;
+	color: var(--text-faint);
+}
+
+.is-mobile .mm-outline-fold {
+	width: 28px;
+}
+
+.mm-outline-fold.collapse-icon {
+	cursor: var(--cursor, default);
+}
+
+.mm-outline-fold svg.svg-icon {
+	width: 10px;
+	height: 10px;
+	stroke-width: 4px;
+	transition: transform 100ms ease-in-out;
+}
+
+.mm-outline-fold.is-collapsed svg.svg-icon {
+	transform: rotate(calc(var(--direction, 1) * -90deg));
+}
+
+.mm-outline-fold.is-collapsed {
+	color: var(--text-accent, var(--interactive-accent));
+}
+
+.mm-outline-fold.is-disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.mm-outline-text {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.mm-outline-text.is-blank {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.mm-outline-count {
+	flex: none;
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller, 12px);
+	font-weight: normal;
+}
+
+.mm-outline-input {
+	flex: 1;
+	min-width: 0;
+	font: inherit;
+}
+
+.mm-outline-empty {
+	padding: 24px 12px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-outline-fold svg.svg-icon {
+		transition: none;
+	}
+}
+
+/* Boundaries and summaries */
+/* A boundary sits under the tree's lines, tinted with its branch colour.
+   Summary braces sit above topics like relationship lines, so the brace and
+   its text can be clicked; the rest of both layers ignores the pointer. */
+.mm-boundaries,
+.mm-summaries {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 1px;
+	height: 1px;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.mm-summaries { z-index: 1; }
+
+.mm-boundary {
+	fill: var(--mm-color, var(--text-muted));
+	fill-opacity: 0.06;
+	stroke: var(--mm-color, var(--text-muted));
+	stroke-opacity: 0.8;
+	stroke-width: 1.5px;
+	rx: 10px;
+	ry: 10px;
+}
+
+.mm-boundary-label {
+	fill: var(--mm-color, var(--text-muted));
+	font-size: 12px;
+	font-weight: 600;
+	dominant-baseline: middle;
+}
+
+.mm-summary {
+	fill: none;
+	stroke: var(--mm-color, var(--text-muted));
+	stroke-width: 2px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.mm-summary-hit {
+	fill: none;
+	stroke: transparent;
+	stroke-width: 14px;
+	pointer-events: stroke;
+	cursor: pointer;
+}
+
+.mm-summary-label {
+	fill: var(--mm-color, var(--text-muted));
+	font-size: 13px;
+	font-style: italic;
+	font-weight: 500;
+	dominant-baseline: middle;
+	pointer-events: all;
+	cursor: pointer;
+}
+
+.mm-summary.is-selected {
+	stroke: var(--interactive-accent);
+	stroke-width: 3px;
+}
+
+.mm-summary-label.is-selected {
+	fill: var(--interactive-accent);
+	text-decoration: underline;
+}
+
+.mm-text-input { width: 100%; }
+
+/* Notes and images */
+
+/* A topic with a note makes room at its end for the marker, so the marker is
+   part of the measured size and never overlaps a neighbour. */
+.mm-node.has-note { padding-right: 22px; }
+.mm-node.is-root.has-note { padding-right: 34px; }
+.mm-node.is-branch.has-note { padding-right: 28px; }
+
+.mm-note-marker {
+	position: absolute;
+	top: 50%;
+	right: 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 4px;
+	color: var(--mm-color, var(--text-muted));
+	transform: translateY(-50%);
+	cursor: pointer;
+}
+.mm-node.is-root .mm-note-marker { right: 10px; color: var(--text-on-accent); }
+.mm-node.is-branch .mm-note-marker { right: 6px; }
+.mm-note-marker:hover { background: var(--background-modifier-hover); }
+.mm-note-marker svg.svg-icon { width: 14px; height: 14px; }
+
+/* Images in topics are capped so one large picture can't swamp the map. */
+.mm-label .internal-embed.image-embed,
+.mm-label .image-embed {
+	display: block;
+}
+.mm-label img {
+	display: block;
+	width: auto;
+	height: auto;
+	max-width: 240px;
+	max-height: 160px;
+	margin: 4px auto 0;
+	object-fit: contain;
+	border-radius: 4px;
+	-webkit-user-drag: none;
+}
+
+.mm-note-popover {
+	position: absolute;
+	z-index: 20;
+	box-sizing: border-box;
+	width: max-content;
+	min-width: 160px;
+	max-width: min(380px, calc(100% - 16px));
+	max-height: min(360px, calc(100% - 16px));
+	overflow: auto;
+	padding: 10px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m, 8px);
+	background: var(--background-primary);
+	box-shadow: var(--shadow-s);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small, 13px);
+	line-height: 1.5;
+	user-select: text;
+	cursor: auto;
+}
+.mm-note-popover .mm-note-body > :first-child,
+.mm-note-popover .mm-note-body > div > :first-child { margin-top: 0; }
+.mm-note-popover .mm-note-body > :last-child,
+.mm-note-popover .mm-note-body > div > :last-child { margin-bottom: 0; }
+.mm-note-popover img {
+	max-width: 100%;
+	max-height: 240px;
+	object-fit: contain;
+}
+.mm-note-edit {
+	float: right;
+	margin: -4px -8px 0 8px;
+}
+
+.mm-note-modal .mm-note-modal-topic {
+	margin-bottom: 8px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small, 13px);
+}
+.mm-note-input {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 160px;
+	resize: vertical;
+	font-family: var(--font-text, inherit);
+}
+.mm-note-modal-hint {
+	margin-top: 6px;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller, 12px);
+}
+
+.mm-outline-note {
+	display: flex;
+	flex: none;
+	margin-left: 6px;
+	color: var(--text-faint);
+}
+.mm-outline-note svg.svg-icon { width: 14px; height: 14px; }
+
+/* Settings: themes and topic width */
+
+/* Automatic branch colours come from the view's theme class (src/settings.ts).
+   Without one, the --mm-theme-N variables are unset and Obsidian's colours
+   show as before. A colour picked for a branch (.mm-color-*) is a different
+   class, so it always wins. .mm-swatches is the preview in the settings tab. */
+.mm-view .mm-c0, .mm-swatches .mm-c0 { --mm-color: var(--mm-theme-0, var(--color-blue)); }
+.mm-view .mm-c1, .mm-swatches .mm-c1 { --mm-color: var(--mm-theme-1, var(--color-orange)); }
+.mm-view .mm-c2, .mm-swatches .mm-c2 { --mm-color: var(--mm-theme-2, var(--color-green)); }
+.mm-view .mm-c3, .mm-swatches .mm-c3 { --mm-color: var(--mm-theme-3, var(--color-purple)); }
+.mm-view .mm-c4, .mm-swatches .mm-c4 { --mm-color: var(--mm-theme-4, var(--color-red)); }
+.mm-view .mm-c5, .mm-swatches .mm-c5 { --mm-color: var(--mm-theme-5, var(--color-cyan)); }
+.mm-view .mm-c6, .mm-swatches .mm-c6 { --mm-color: var(--mm-theme-6, var(--color-yellow)); }
+.mm-view .mm-c7, .mm-swatches .mm-c7 { --mm-color: var(--mm-theme-7, var(--color-pink)); }
+
+.mm-theme-pastel {
+	--mm-theme-0: #6f9fd8;
+	--mm-theme-1: #e99a4c;
+	--mm-theme-2: #6dbb82;
+	--mm-theme-3: #a68fd6;
+	--mm-theme-4: #e27f7f;
+	--mm-theme-5: #5fbcbc;
+	--mm-theme-6: #d4b04a;
+	--mm-theme-7: #e48db6;
+}
+.theme-dark .mm-theme-pastel {
+	--mm-theme-0: #a8c8f0;
+	--mm-theme-1: #f7c08a;
+	--mm-theme-2: #a5dcb2;
+	--mm-theme-3: #cdbcf0;
+	--mm-theme-4: #f5b0b0;
+	--mm-theme-5: #9fdcdc;
+	--mm-theme-6: #f0d88a;
+	--mm-theme-7: #f5bcd6;
+}
+
+.mm-theme-vivid {
+	--mm-theme-0: #0066ff;
+	--mm-theme-1: #ff6a00;
+	--mm-theme-2: #00b341;
+	--mm-theme-3: #8a2be2;
+	--mm-theme-4: #e6003a;
+	--mm-theme-5: #00b3c7;
+	--mm-theme-6: #f2b200;
+	--mm-theme-7: #ff2d95;
+}
+.theme-dark .mm-theme-vivid {
+	--mm-theme-0: #3d8bff;
+	--mm-theme-1: #ff8a33;
+	--mm-theme-2: #1fd65f;
+	--mm-theme-3: #a45cff;
+	--mm-theme-4: #ff3860;
+	--mm-theme-5: #1fd4e6;
+	--mm-theme-6: #ffcc1a;
+	--mm-theme-7: #ff5cad;
+}
+
+.mm-theme-earth {
+	--mm-theme-0: #4f6d7a;
+	--mm-theme-1: #b5651d;
+	--mm-theme-2: #5b7f3a;
+	--mm-theme-3: #7d5a50;
+	--mm-theme-4: #a23b2a;
+	--mm-theme-5: #3f7f72;
+	--mm-theme-6: #b8902a;
+	--mm-theme-7: #8c5b7a;
+}
+.theme-dark .mm-theme-earth {
+	--mm-theme-0: #8fa9b5;
+	--mm-theme-1: #d98a4a;
+	--mm-theme-2: #8fb36b;
+	--mm-theme-3: #b08d80;
+	--mm-theme-4: #d3705c;
+	--mm-theme-5: #6fb3a5;
+	--mm-theme-6: #dbb85a;
+	--mm-theme-7: #c08fae;
+}
+
+.mm-theme-contrast {
+	--mm-theme-0: #0040c0;
+	--mm-theme-1: #b34700;
+	--mm-theme-2: #006b1f;
+	--mm-theme-3: #6a1fb3;
+	--mm-theme-4: #c00018;
+	--mm-theme-5: #00707a;
+	--mm-theme-6: #7a5a00;
+	--mm-theme-7: #b0006a;
+}
+.theme-dark .mm-theme-contrast {
+	--mm-theme-0: #6fb0ff;
+	--mm-theme-1: #ffa040;
+	--mm-theme-2: #4ee080;
+	--mm-theme-3: #c79bff;
+	--mm-theme-4: #ff6b7a;
+	--mm-theme-5: #40e0e8;
+	--mm-theme-6: #ffe04a;
+	--mm-theme-7: #ff7ac8;
+}
+
+/* Monochrome: shades of the accent colour, darker on light backgrounds and
+   lighter on dark ones. */
+.mm-theme-mono {
+	--mm-theme-0: hsl(var(--accent-h, 258), var(--accent-s, 88%), 32%);
+	--mm-theme-1: hsl(var(--accent-h, 258), var(--accent-s, 88%), 52%);
+	--mm-theme-2: hsl(var(--accent-h, 258), var(--accent-s, 88%), 42%);
+	--mm-theme-3: hsl(var(--accent-h, 258), var(--accent-s, 88%), 62%);
+	--mm-theme-4: hsl(var(--accent-h, 258), var(--accent-s, 88%), 37%);
+	--mm-theme-5: hsl(var(--accent-h, 258), var(--accent-s, 88%), 57%);
+	--mm-theme-6: hsl(var(--accent-h, 258), var(--accent-s, 88%), 47%);
+	--mm-theme-7: hsl(var(--accent-h, 258), var(--accent-s, 88%), 67%);
+}
+.theme-dark .mm-theme-mono {
+	--mm-theme-0: hsl(var(--accent-h, 258), var(--accent-s, 88%), 78%);
+	--mm-theme-1: hsl(var(--accent-h, 258), var(--accent-s, 88%), 58%);
+	--mm-theme-2: hsl(var(--accent-h, 258), var(--accent-s, 88%), 68%);
+	--mm-theme-3: hsl(var(--accent-h, 258), var(--accent-s, 88%), 48%);
+	--mm-theme-4: hsl(var(--accent-h, 258), var(--accent-s, 88%), 73%);
+	--mm-theme-5: hsl(var(--accent-h, 258), var(--accent-s, 88%), 53%);
+	--mm-theme-6: hsl(var(--accent-h, 258), var(--accent-s, 88%), 63%);
+	--mm-theme-7: hsl(var(--accent-h, 258), var(--accent-s, 88%), 83%);
+}
+
+/* Topic width: the view sets --mm-topic-width; the central topic gets a
+   little more, as it always has. */
+.mm-view .mm-node { max-width: var(--mm-topic-width, 320px); }
+.mm-view .mm-node.is-root { max-width: calc(var(--mm-topic-width, 320px) + 40px); }
+
+/* The theme preview in the settings tab. */
+.mm-swatches {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.mm-swatch {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--mm-color);
+	box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+}
+
+/* Performance */
+/* Keyboard focus on the map itself shows as a ring on the selected topic.
+   Moved here from above with its classes reordered: Chrome keys the
+   restyle on a focus change by the first class, and keyed on .mm-node it
+   restyled every topic each time focus moved (about 120 ms on a
+   1,000-topic map at 4x CPU throttling). Keyed on .is-selected it restyles
+   one. Matches exactly the same elements. */
+.mm-viewport:focus-visible .is-selected.mm-node {
+	box-shadow: 0 0 0 5px var(--background-modifier-hover);
+}
+
+/* ---- Unplaced topics ----
+   A topic stays hidden until the first layout places it, so it never flashes
+   at the origin, and can't catch clicks while it waits off screen. */
+.mm-node.mm-unplaced {
+	opacity: 0;
+	visibility: hidden;
+}

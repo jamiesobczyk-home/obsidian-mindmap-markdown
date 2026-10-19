@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+:root{--color-red:#e93147;--color-orange:#ec7500;--color-yellow:#e0ac00;--color-green:#08b94e;--color-cyan:#00bfbc;--color-blue:#086ddd;--color-purple:#7852ee;--color-pink:#d53984;
+--background-primary:#fff;--background-secondary:#f6f6f6;--background-modifier-border:#e0e0e0;--text-normal:#222;--text-muted:#5c5c5c;--text-faint:#ababab;--text-on-accent:#fff;--interactive-accent:#7852ee;--font-text-size:16px;--font-ui-small:13px;--radius-m:8px;--shadow-s:0 1px 3px rgba(0,0,0,.15);
+--background-modifier-hover:rgba(0,0,0,.06);--background-modifier-active-hover:rgba(120,82,238,.12);--text-accent:#7852ee;--font-ui-medium:15px;--font-ui-smaller:12px;--radius-s:4px;--size-4-2:8px}
+body{margin:0;font-family:system-ui,sans-serif}
+#content{position:absolute;inset:0}
+#outline-leaf{display:none;position:absolute;top:0;right:0;bottom:0;width:300px;border-left:1px solid var(--background-modifier-border);background:var(--background-secondary);font-family:system-ui,sans-serif}
+#outline-leaf .workspace-leaf-content{height:100%}#outline-leaf .view-header{display:none}
+.modal-container{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}.modal{width:480px;max-width:90vw;padding:16px;background:var(--background-primary);border-radius:8px}.modal-title{font-weight:600;margin-bottom:8px}.suggestion-item{padding:4px 8px}
+#outline-leaf .view-content{box-sizing:border-box;height:100%;overflow:auto;padding:12px 12px 32px}
+</style>
+<link rel="stylesheet" href="../../styles.css"></head><body><div id="content"></div><div id="outline-leaf"></div>
+<script>window.initial=`---
+mindmap-plugin: basic
+---
+
+# Kitchen remodel
+
+- Budget
+	- Cabinets **$8k**
+	- Counters
+	- Appliances
+- Contractors
+	- [[Smith Carpentry]]
+	- Electrician
+- Timeline
+	- Demo in March
+	- Install in May
+- Design ideas
+	- Open shelving
+	- Under-cabinet lighting
+`;</script>
+<script src="../../.test-build/smoke/bundle.js"></script></body></html>

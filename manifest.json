@@ -1,0 +1,9 @@
+{
+	"id": "mindmap-markdown",
+	"name": "Keyboard Mind Map",
+	"version": "1.0.0",
+	"minAppVersion": "1.7.2",
+	"description": "Keyboard-first mind maps stored as ordinary Markdown outlines.",
+	"author": "Jamie Sobczyk",
+	"isDesktopOnly": false
+}

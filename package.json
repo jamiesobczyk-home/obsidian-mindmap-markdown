@@ -1,0 +1,23 @@
+{
+	"name": "mindmap-markdown",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Keyboard-first mind maps for Obsidian, stored as Markdown outlines.",
+	"author": "Jamie Sobczyk",
+	"license": "MIT",
+	"repository": "github:jamiesobczyk-home/obsidian-mindmap-markdown",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc --noEmit && node esbuild.config.mjs production",
+		"test": "node esbuild.config.mjs test && node --test \".test-build/*.test.mjs\"",
+		"smoke": "node tests/smoke/run.mjs",
+		"real": "node tests/real/run.mjs",
+		"perf": "node tests/perf/run.mjs"
+	},
+	"devDependencies": {
+		"@types/node": "22.18.0",
+		"esbuild": "0.25.12",
+		"obsidian": "1.12.3",
+		"typescript": "5.9.3"
+	}
+}
