@@ -1,7 +1,10 @@
-# Pushing a tag such as 1.0.0 builds the plugin, runs the unit tests and
-# publishes a GitHub release with the three files Obsidian installs.
+# Publishes a GitHub release with the three files Obsidian installs, after
+# building and running the unit tests. Run it from the Actions tab ("Run
+# workflow"), which tags the release with manifest.json's version, or push a
+# tag that matches that version.
 name: Release
 on:
+  workflow_dispatch:
   push:
     tags: ["*"]
 permissions:
@@ -17,9 +20,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - name: Check the tag matches manifest.json
-        run: test "$GITHUB_REF_NAME" = "$(node -p "require('./manifest.json').version")"
+      - name: Read the version from manifest.json
+        id: v
+        run: echo "version=$(node -p "require('./manifest.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check a pushed tag matches manifest.json
+        if: github.event_name == 'push'
+        run: test "$GITHUB_REF_NAME" = "${{ steps.v.outputs.version }}"
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes main.js manifest.json styles.css
+          VERSION: ${{ steps.v.outputs.version }}
+        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes main.js manifest.json styles.css
